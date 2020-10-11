@@ -4,7 +4,7 @@ import hashlib
 from aiohttp import ClientError, ClientSession, CookieJar
 
 from .client import Client
-from .error import AuthenticationError, RequestError, convert_exception
+from .error import AuthenticationError, PytleapError, RequestError, convert_exception
 from .utils import normalize_mac
 
 
@@ -68,9 +68,10 @@ class Eap:
         except ClientError:
             # Ignore error, as we are logging out anyway
             pass
-        await self.session.close()
-        self.is_connected = False
-        self.session = None
+        finally:
+            await self.session.close()
+            self.is_connected = False
+            self.session = None
 
     async def get_wifi_clients(self) -> [Client]:
         """Retrieve the list of connected Wifi clients."""
@@ -98,11 +99,15 @@ class Eap:
         """Make a GET query to a given path that returns JSON"""
         async with self.session.get(f"{self.url}/{path}?operation={operation}") as resp:
             resp_j = await resp.json(content_type="text/html")
-            if not resp_j["success"] or resp_j["timeout"] != "false":
-                await self.disconnect()
-                if resp_j["timeout"]:
+            if resp_j is None or not resp_j["success"] or resp_j["timeout"] != "false":
+                try:
+                    await self.disconnect()
+                except PytleapError:
+                    pass  # Ignore exception here as we are trying our best
+                if resp_j is not None and resp_j["timeout"]:
                     raise AuthenticationError("Authentication invalid or expired")
                 raise RequestError(
-                    f"Cannot query device for {path}, with operation {operation}: {resp_j}"
+                    f"Cannot query device for {path}, with operation {operation}. "
+                    f"Received: '{resp_j}'"
                 )
             return resp_j["data"]
