@@ -1,4 +1,5 @@
 """Represents the EAP device."""
+from typing import Optional
 
 from pexpect import pxssh
 
@@ -23,6 +24,8 @@ class Eap:
         self.ssh_session = None
         self.is_connected = False
 
+        self.mac_address: Optional[str] = None
+
     def set_timeout(self, timeout: int):
         """Set the timeout for communications with this EAP device."""
         self.timeout = timeout
@@ -45,6 +48,8 @@ class Eap:
                 port=self.port,
                 login_timeout=self.timeout,
             )
+            # Retrieve MAC on login
+            self._retrieve_mac_address()
         except pxssh.ExceptionPexpect as err:
             raise convert_pexpect_exception("Could not login on EAP device", err) from err
         self.is_connected = True
@@ -79,3 +84,8 @@ class Eap:
             raise convert_pexpect_exception("Could not retrieve client list from EAP device", err) from err
 
         return client_list
+
+    def _retrieve_mac_address(self):
+        self.ssh_session.sendline("cat /sys/class/net/eth0/address")
+        self.ssh_session.prompt(self.timeout)
+        self.mac_address = self.ssh_session.before.strip()

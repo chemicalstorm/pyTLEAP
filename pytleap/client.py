@@ -12,3 +12,7 @@ class Client:
     def mac_address(self) -> str:
         """Return the MAC address of the device"""
         return self.entry.get("ADDR", "Unknown")
+
+    def __repr__(self):
+        """Client representation"""
+        return f"<Client{{{self.mac_address}}}>"
