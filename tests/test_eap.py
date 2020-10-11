@@ -3,13 +3,13 @@ from unittest.mock import patch
 import pytest
 from pexpect import pxssh
 
-from pytleap import EAP, PytleapError
+from pytleap import Eap, PytleapError
 
 
 @pytest.fixture
 def eap():
     """Initialize EAP device."""
-    return EAP("localhost", "admin", "1234")
+    return Eap("localhost", "admin", "1234")
 
 
 @patch("pexpect.pxssh.pxssh.login")

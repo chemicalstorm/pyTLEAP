@@ -1,11 +1,13 @@
 """Implement an API wrapper for accessing a TP-Link EAP."""
 from pathlib import Path
 
-from .eap import EAP
+from .eap import Eap
+from .client import Client
 from .error import CommunicationError, PytleapError
 
 __all__ = [
-    "EAP",
+    "Eap",
+    "Client",
     "PytleapError",
     "CommunicationError",
 ]

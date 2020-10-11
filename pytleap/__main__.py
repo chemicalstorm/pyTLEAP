@@ -2,7 +2,7 @@
 import argparse
 from pprint import pprint
 
-from .eap import EAP
+from .eap import Eap
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    eap = EAP(args.host, args.user, args.password, args.port)
+    eap = Eap(args.host, args.user, args.password, args.port)
     if args.timeout:
         eap.set_timeout(args.timeout)
     eap.connect()

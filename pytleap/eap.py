@@ -7,7 +7,7 @@ from .error import CommunicationError
 from .utils import process_wlanconfig
 
 
-class EAP:
+class Eap:
     """ Model of an EAP device"""
 
     def __init__(self, host: str, username: str, password: str, port: int = 22):
