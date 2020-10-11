@@ -55,6 +55,7 @@ class Eap:
             # Retrieve device info on login
             await self._async_retrieve_device_info()
         except ClientError as err:
+            await self.disconnect()
             raise convert_exception("Could not login on EAP device", err) from err
         self.is_connected = True
 
