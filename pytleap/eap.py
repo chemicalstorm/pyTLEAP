@@ -1,91 +1,108 @@
 """Represents the EAP device."""
-from typing import Optional
+import hashlib
 
-from pexpect import pxssh
+from aiohttp import ClientError, ClientSession, CookieJar
 
 from .client import Client
-from .error import convert_pexpect_exception
-from .utils import process_wlanconfig
+from .error import AuthenticationError, RequestError, convert_exception
+from .utils import normalize_mac
 
 
 class Eap:
     """ Model of an EAP device"""
 
-    def __init__(self, host: str, username: str, password: str, port: int = 22):
-        self.host = host
+    def __init__(self, url: str, username: str, password: str, ssl: bool = True):
+        self.url = url
         self.username = username
         self.password = password
-        self.port = port
+        self.ssl = ssl
 
-        self.timeout = 30
-
-        self.wifi_interfaces = ["ath0", "ath10"]
-
-        self.ssh_session = None
+        self.session = None
         self.is_connected = False
 
-        self.mac_address: Optional[str] = None
+        self._data = {}
 
-    def set_timeout(self, timeout: int):
-        """Set the timeout for communications with this EAP device."""
-        self.timeout = timeout
+    @property
+    def mac_address(self) -> str:
+        """Return the MAC address of the EAP."""
+        return normalize_mac(self._data.get("mac"))
 
-    def connect(self):
+    @property
+    def name(self) -> str:
+        """Return the name of the EAP."""
+        return self._data.get("deviceName")
+
+    async def connect(self):
         """Connect to the EAP device."""
         if self.is_connected:
             return
 
-        self.ssh_session = pxssh.pxssh(
-            echo=False, encoding="utf-8", timeout=self.timeout
-        )
-        self.ssh_session.force_password = True
+        # By default, forbids cookie from URLs with IP address instead of DNS name
+        jar = CookieJar(unsafe=True)
+        # Need referer to be accepted
+        self.session = ClientSession(cookie_jar=jar, headers={"Referer": self.url})
 
+        hashed_password = hashlib.md5(self.password.encode("utf-8"))
         try:
-            self.ssh_session.login(
-                self.host,
-                self.username,
-                self.password,
-                port=self.port,
-                login_timeout=self.timeout,
+            await self.session.get(self.url)
+            await self.session.post(
+                self.url,
+                data={
+                    "username": self.username,
+                    "password": hashed_password.hexdigest().upper(),
+                },
             )
-            # Retrieve MAC on login
-            self._retrieve_mac_address()
-        except pxssh.ExceptionPexpect as err:
-            raise convert_pexpect_exception("Could not login on EAP device", err) from err
+            # Retrieve device info on login
+            await self._async_retrieve_device_info()
+        except ClientError as err:
+            raise convert_exception("Could not login on EAP device", err) from err
         self.is_connected = True
 
-    def disconnect(self):
+    async def disconnect(self):
         """Close the connection to the EAP device."""
-        if not self.is_connected:
+        if self.session is None:
             return
 
         try:
-            self.ssh_session.logout()
-        except pxssh.ExceptionPexpect:
+            await self.session.get(f"{self.url}/logout.html")
+        except ClientError:
             # Ignore error, as we are logging out anyway
             pass
-
+        await self.session.close()
         self.is_connected = False
-        self.ssh_session = None
+        self.session = None
 
-    def get_wifi_clients(self, interfaces: [str] = None) -> [Client]:
+    async def get_wifi_clients(self) -> [Client]:
         """Retrieve the list of connected Wifi clients."""
         if not self.is_connected:
-            self.connect()
+            await self.connect()
 
-        client_list = []
         try:
-            for iface in interfaces or self.wifi_interfaces:
-                self.ssh_session.sendline(f"wlanconfig {iface} list")
-                self.ssh_session.prompt(self.timeout)
-                client_list.extend(process_wlanconfig(self.ssh_session.before))
-        except pxssh.ExceptionPexpect as err:
-            self.is_connected = False
-            raise convert_pexpect_exception("Could not retrieve client list from EAP device", err) from err
+            resp = await self._async_make_query_json(
+                "data/status.client.user.json", "load"
+            )
+        except ClientError as err:
+            await self.disconnect()
+            raise convert_exception(
+                "Could not retrieve client list from EAP device", err
+            ) from err
 
-        return client_list
+        return [Client(c) for c in resp]
 
-    def _retrieve_mac_address(self):
-        self.ssh_session.sendline("cat /sys/class/net/eth0/address")
-        self.ssh_session.prompt(self.timeout)
-        self.mac_address = self.ssh_session.before.strip()
+    async def _async_retrieve_device_info(self):
+        self._data = await self._async_make_query_json(
+            "data/status.device.json", "read"
+        )
+
+    async def _async_make_query_json(self, path: str, operation: str) -> dict:
+        """Make a GET query to a given path that returns JSON"""
+        async with self.session.get(f"{self.url}/{path}?operation={operation}") as resp:
+            resp_j = await resp.json(content_type="text/html")
+            if not resp_j["success"] or resp_j["timeout"] != "false":
+                await self.disconnect()
+                if resp_j["timeout"]:
+                    raise AuthenticationError("Authentication invalid or expired")
+                raise RequestError(
+                    f"Cannot query device for {path}, with operation {operation}: {resp_j}"
+                )
+            return resp_j["data"]

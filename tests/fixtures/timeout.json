@@ -1,0 +1,11 @@
+{
+	"success":	true,
+	"timeout":	true,
+	"version":	"1.00",
+	"mode":	"accessPoint",
+	"status":	-1,
+	"ip":	"192.168.1.42",
+	"username":	"admin",
+	"firstLogin":	false,
+	"devInfo":	"EAP245"
+}

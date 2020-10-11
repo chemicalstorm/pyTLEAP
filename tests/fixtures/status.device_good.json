@@ -1,0 +1,25 @@
+{
+	"error":	0,
+	"success":	true,
+	"timeout":	"false",
+	"data":	{
+		"deviceName":	"EAP245-AA-BB-CC-DD-EE-FF",
+		"deviceModel":	"EAP245",
+		"firmwareVersion":	"2.3.0 Build 20190731 Rel. 51932(5553)",
+		"hardwareVersion":	"3.0",
+		"mac":	"AA-BB-CC-DD-EE-FF",
+		"ip":	"192.168.42.254",
+		"subnetMask":	"255.255.255.0",
+		"lan_port_list":	[{
+				"status":	"1000Mbps - FD",
+				"name":	"ETH1(POE)"
+			}, {
+				"status":	"Down",
+				"name":	"ETH2"
+			}],
+		"time":	"2020-10-11 09:51:57",
+		"uptime":	"0 days 11:49:24",
+		"cpu":	15,
+		"memory":	51
+	}
+}

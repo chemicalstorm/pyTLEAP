@@ -1,5 +1,6 @@
 """Provide a CLI for PyTLEAP."""
 import argparse
+import asyncio
 from pprint import pprint
 
 from .eap import Eap
@@ -7,41 +8,38 @@ from .eap import Eap
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--host", metavar="IP", type=str, required=True, help="IP Address of your EAP device"
-    )
-    parser.add_argument(
-        "--user", "-u", type=str, required=True, help="Username to access the EAP SSH server"
-    )
-    parser.add_argument(
-        "--password", "-p", type=str, required=True, help="Password to access the EAP SSH server"
-    )
-    parser.add_argument(
-        "--port", type=int, default=22, help="Port used by the EAP SSH server"
-    )
-
-    parser.add_argument(
-        "--timeout", type=int, help="Timeout for communication with EAP device"
-    )
-
-    parser.add_argument(
-        "--interface",
-        "-i",
-        action="append",
-        nargs="+",
+        "--url",
         type=str,
-        help="Wifi interface to query",
+        required=True,
+        help="URL of the EAP",
+    )
+    parser.add_argument(
+        "--user",
+        "-u",
+        type=str,
+        required=True,
+        help="Username to access the EAP",
+    )
+    parser.add_argument(
+        "--password",
+        "-p",
+        type=str,
+        required=True,
+        help="Password to access the EAP",
     )
 
     args = parser.parse_args()
 
-    eap = Eap(args.host, args.user, args.password, args.port)
-    if args.timeout:
-        eap.set_timeout(args.timeout)
-    eap.connect()
+    loop = asyncio.get_event_loop_policy().new_event_loop()
 
-    clients = eap.get_wifi_clients(args.interface)
+    eap = Eap(args.url, args.user, args.password)
+    loop.run_until_complete(eap.connect())
 
-    eap.disconnect()
+    clients = loop.run_until_complete(eap.get_wifi_clients())
+
+    loop.run_until_complete(eap.disconnect())
 
     print(f"{len(clients)} connected clients:")
-    pprint([c.mac_address for c in clients])
+    pprint([f"{c.mac_address} ({c.hostname}): {c.ip}" for c in clients])
+
+    loop.close()
