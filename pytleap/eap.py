@@ -3,7 +3,7 @@
 from pexpect import pxssh
 
 from .client import Client
-from .error import CommunicationError
+from .error import convert_pexpect_exception
 from .utils import process_wlanconfig
 
 
@@ -46,7 +46,7 @@ class Eap:
                 login_timeout=self.timeout,
             )
         except pxssh.ExceptionPexpect as err:
-            raise CommunicationError("Cannot login") from err
+            raise convert_pexpect_exception("Could not login on EAP device", err) from err
         self.is_connected = True
 
     def disconnect(self):
@@ -75,6 +75,7 @@ class Eap:
                 self.ssh_session.prompt(self.timeout)
                 client_list.extend(process_wlanconfig(self.ssh_session.before))
         except pxssh.ExceptionPexpect as err:
-            raise CommunicationError("Cannot retrieve client list") from err
+            self.is_connected = False
+            raise convert_pexpect_exception("Could not retrieve client list from EAP device", err) from err
 
         return client_list
