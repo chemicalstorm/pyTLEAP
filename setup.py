@@ -30,5 +30,5 @@ setup(
     license="MIT",
     keywords="tp-link eap",
     download_url=DOWNLOAD_URL,
-    install_requires=["pexpect"],
+    install_requires=["aiohttp"],
 )

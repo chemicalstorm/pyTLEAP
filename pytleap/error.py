@@ -35,7 +35,7 @@ class RequestError(PytleapError):
 
 
 def convert_exception(message: str, err: ClientError) -> PytleapError:
-    """Given a Pexpect exception, return the corresponding PytleapError."""
+    """Given a ClientError exception (from aiohttp), return the corresponding PytleapError."""
     if isinstance(err, ServerTimeoutError):
         return TimeoutError(message, err)
     if isinstance(err, ClientResponseError):
